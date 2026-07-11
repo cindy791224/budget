@@ -102,12 +102,15 @@
   <div class="page on" id="p1">
     <div class="card">
       <h2>➕ 記一筆</h2>
-      <div class="grid2">
-        <div><label>金額</label><input type="number" id="amt" inputmode="numeric" placeholder="0"></div>
-        <div><label>大類</label><select id="cat" onchange="subs()"></select></div>
+      <div><label>金額</label><input type="number" id="amt" inputmode="numeric" placeholder="0" style="height:56px;font-size:26px;font-weight:600;text-align:center"></div>
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label style="margin:0">選項目</label>
+          <button onclick="toggleAll()" id="allBtn" style="background:none;border:none;color:var(--blue);font-size:13px;cursor:pointer;font-family:inherit;padding:0">顯示全部 ▾</button>
+        </div>
+        <div id="subs" class="chips"></div>
       </div>
-      <div style="margin-top:10px"><label>細項</label><div id="subs" class="chips"></div></div>
-      <div style="margin-top:10px"><label>備註（選填）</label><input type="text" id="note" placeholder="例：晚餐、洗頭"></div>
+      <div style="margin-top:12px"><label>備註（選填）</label><input type="text" id="note" placeholder="例：晚餐、洗頭"></div>
       <button class="act" onclick="addExp()">記下來</button>
       <div id="after"></div>
     </div>
@@ -127,7 +130,17 @@
       <h2>💭 想花一筆錢？先算代價</h2>
       <div class="grid2">
         <div><label>想花多少</label><input type="number" id="tamt" inputmode="numeric" placeholder="0" oninput="think()"></div>
-        <div><label>分類</label><select id="tcat" onchange="think()"></select></div>
+        <div><label>分類</label><select id="tcat" onchange="think()">
+          <option value="外表日常">外表日常</option>
+          <option value="飲食">飲食</option>
+          <option value="娛樂/興趣">娛樂/興趣</option>
+          <option value="固定必要">固定必要</option>
+          <option value="人情/其他">人情/其他</option>
+          <option value="醫療保健">醫療保健</option>
+          <option value="旅遊">旅遊（年度）</option>
+          <option value="醫美">醫美（年度）</option>
+          <option value="大額專案">大額專案</option>
+        </select></div>
       </div>
       <div id="tres"></div>
     </div>
@@ -241,67 +254,88 @@ function saved(k){
 }
 function activeGoal(){ for(const g of GOALS){ if(saved(g.k)<g.t) return g; } return null; }
 
-let curSub='';
-function init(){
-  const cs=[...Object.keys(MB),...Object.keys(YB),BIG,NC];
-  ['cat','tcat'].forEach(id=>{
-    const s=document.getElementById(id); s.innerHTML='';
-    cs.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;s.appendChild(o);});
-  });
-  subs();
-  render();
+let curSub='', curCat='', showAll=false;
+// 細項 → 大類 反查表
+const SUB2CAT={};
+Object.entries(SUB).forEach(([c,list])=>list.forEach(s=>SUB2CAT[s]=c));
+// 常用細項（依你的實際記帳頻率排序）
+const FAV=['飲食','飲料','甜點','美容美髮','保養化妝','美甲美睫','LPG/按摩','做臉療程','衣服','日常用品','交通-加油','醫療保健','娛樂','花','請客','人情送禮'];
+
+function init(){ renderChips(); render(); }
+
+function toggleAll(){
+  showAll=!showAll;
+  document.getElementById('allBtn').textContent = showAll?'只顯示常用 ▴':'顯示全部 ▾';
+  renderChips();
 }
-function subs(){
-  const c=document.getElementById('cat').value;
-  const list=SUB[c]||[];
-  curSub=list[0]||'';
-  document.getElementById('subs').innerHTML=list.map((s,i)=>
-    `<button class="chip ${i===0?'on':''}" onclick="pickSub(this,'${s}')">${s}</button>`).join('');
+function renderChips(){
+  const el=document.getElementById('subs');
+  let html='';
+  if(!showAll){
+    html=FAV.map(s=>`<button class="chip ${curSub===s?'on':''}" onclick="pickSub('${s}')">${s}</button>`).join('');
+  } else {
+    Object.entries(SUB).forEach(([c,list])=>{
+      html+=`<div style="width:100%;font-size:12px;color:var(--text-3);margin:8px 0 4px">${c}</div>`;
+      html+=list.map(s=>`<button class="chip ${curSub===s?'on':''}" onclick="pickSub('${s}')">${s}</button>`).join('');
+    });
+  }
+  el.innerHTML=html;
 }
-function pickSub(el,s){
-  curSub=s;
-  el.parentNode.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
-  el.classList.add('on');
+function pickSub(s){
+  curSub=s; curCat=SUB2CAT[s]||'';
+  renderChips();
 }
 
 function addExp(){
   const a=parseFloat(document.getElementById('amt').value);
   if(!a||a<=0){ toast('請輸入金額'); return; }
-  const c=document.getElementById('cat').value;
-  const n=document.getElementById('note').value.trim();
-  D.exp.push({d:new Date().toISOString(),cat:c,sub:curSub||c,amt:a,note:n});
+  if(!curSub){ toast('請選一個項目'); return; }
+  const c=curCat, n=document.getElementById('note').value.trim();
+  D.exp.push({d:new Date().toISOString(),cat:c,sub:curSub,amt:a,note:n});
   save();
   document.getElementById('amt').value=''; document.getElementById('note').value='';
-  showAfter(c,a);
+  showAfter(c,curSub,a);
   render();
-  toast('已記錄 '+fmt(a));
 }
 
-function showAfter(c,a){
+function showAfter(c,sub,a){
   const el=document.getElementById('after');
   let h='';
   if(MB[c]){
     const left=MB[c]-mSpent(c), wl=Math.round(MB[c]/4.3)-wSpent(c);
     const cls=left<0?'no':(left<MB[c]*0.2?'hm':'ok');
-    h=`<div class="msg ${cls}"><b>${c}</b><br>本月剩 <b class="${left<0?'over':''}">${fmt(left)}</b>　·　本週剩 <b class="${wl<0?'over':''}">${fmt(wl)}</b>`;
-    if(left<0) h+=`<br>⚠️ 本月已超支 ${fmt(-left)}，下個月回來就好。`;
+    const col=left<0?'var(--red)':(left<MB[c]*0.2?'var(--amber)':'var(--teal)');
+    h=`<div class="msg ${cls}" style="text-align:center">
+      <div style="font-size:13px;color:var(--text-2)">✅ 已記錄 ${sub} ${fmt(a)}</div>
+      <div style="font-size:13px;color:var(--text-2);margin-top:10px">${c} 本月還剩</div>
+      <div style="font-size:34px;font-weight:700;color:${col};line-height:1.2">${fmt(left)}</div>
+      <div style="font-size:13px;color:var(--text-2)">本週還剩 <b style="color:${wl<0?'var(--red)':'var(--text)'}">${fmt(wl)}</b>　/　月預算 ${fmt(MB[c])}</div>`;
+    if(left<0) h+=`<div style="font-size:13px;color:var(--red);margin-top:8px">超支 ${fmt(-left)}　下個月回來就好 🙂</div>`;
     h+='</div>';
   } else if(YB[c]){
     const left=YB[c]-ySpent(c);
     const g=activeGoal();
-    h=`<div class="msg ${left<0?'no':'ok'}"><b>${c}</b>（年度）<br>今年剩 <b class="${left<0?'over':''}">${fmt(left)}</b>`;
-    if(g&&a>0){ const dl=(a/(160000/12)).toFixed(1); h+=`<br>💭 這筆錢 ≈ <b>${g.n}</b> 進度延後約 <b>${dl}</b> 個月`; }
+    const col=left<0?'var(--red)':'var(--teal)';
+    h=`<div class="msg ${left<0?'no':'ok'}" style="text-align:center">
+      <div style="font-size:13px;color:var(--text-2)">✅ 已記錄 ${sub} ${fmt(a)}</div>
+      <div style="font-size:13px;color:var(--text-2);margin-top:10px">${c}（年度）今年還剩</div>
+      <div style="font-size:34px;font-weight:700;color:${col};line-height:1.2">${fmt(left)}</div>
+      <div style="font-size:13px;color:var(--text-2)">年預算 ${fmt(YB[c])}</div>`;
+    if(g&&a>0) h+=`<div style="font-size:12.5px;color:var(--violet);margin-top:8px">💭 ≈ ${g.n} 進度延後 ${(a/(160000/12)).toFixed(1)} 個月</div>`;
     h+='</div>';
   } else if(c===BIG){
     const g=activeGoal();
-    h=`<div class="msg hm">🔨 <b>大額專案</b>已記錄（不佔月預算）。`;
-    if(g&&a>0){ h+=`<br>💭 這筆錢 ≈ <b>${g.n}</b> 進度延後約 <b>${(a/(160000/12)).toFixed(1)}</b> 個月`; }
+    h=`<div class="msg hm" style="text-align:center">
+      <div style="font-size:13px;color:var(--text-2)">✅ 已記錄 ${sub} ${fmt(a)}</div>
+      <div style="margin-top:8px">🔨 大額專案（不佔月預算）<br>今年累計 <b>${fmt(ySpent(BIG))}</b></div>`;
+    if(g&&a>0) h+=`<div style="font-size:12.5px;color:var(--violet);margin-top:8px">💭 ≈ ${g.n} 進度延後 ${(a/(160000/12)).toFixed(1)} 個月</div>`;
     h+='</div>';
   } else if(c===NC){
-    h=`<div class="msg ok">💼 <b>非消費</b>已記錄（投資／還債，不算開銷）。</div>`;
+    h=`<div class="msg ok" style="text-align:center">
+      <div style="font-size:13px;color:var(--text-2)">✅ 已記錄 ${sub} ${fmt(a)}</div>
+      <div style="margin-top:8px">💼 非消費（投資／還債，不算開銷）<br>今年累計 <b>${fmt(ySpent(NC))}</b></div></div>`;
   }
   el.innerHTML=h;
-  setTimeout(()=>{el.innerHTML='';},9000);
 }
 
 function resist(){
