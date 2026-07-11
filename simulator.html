@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>財務人生模擬器</title>
+<style>
+  :root{
+    --bg:#f4f2ec; --surface:#ffffff; --surface-alt:#faf9f5;
+    --text:#28271f; --text-2:#6b6a60; --text-3:#95948a;
+    --border:#e3e1d8; --border-strong:#cfcdc2;
+    --blue:#2a78d6; --teal:#1baf7a; --amber:#c98500; --violet:#6a5acd;
+    --green-text:#2f7a2f; --red-text:#c0392b;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1c1c1a; --surface:#262623; --surface-alt:#2f2f2b;
+      --text:#f0efe8; --text-2:#b6b5aa; --text-3:#8a897f;
+      --border:#3a3a35; --border-strong:#4a4a44;
+      --blue:#5a9ce8; --teal:#3fc79a; --amber:#e0a642; --violet:#9085e9;
+      --green-text:#7bc47b; --red-text:#e8776a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+    line-height:1.6; padding:2rem 1rem;
+  }
+  .wrap{max-width:880px; margin:0 auto}
+  header{margin-bottom:2rem}
+  h1{font-size:26px; font-weight:600; margin:0 0 6px}
+  .sub{color:var(--text-2); font-size:14px; margin:0}
+  section{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:1.25rem 1.5rem; margin-bottom:1.25rem;
+  }
+  h2{font-size:16px; font-weight:600; margin:0 0 6px; display:flex; align-items:center; gap:8px}
+  .hint{font-size:12.5px; color:var(--text-3); margin:0 0 16px; line-height:1.55}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px}
+  label{display:block; font-size:13px; color:var(--text-2); margin-bottom:5px}
+  input[type=number]{
+    width:100%; height:38px; padding:0 10px; font-size:15px;
+    background:var(--surface-alt); color:var(--text);
+    border:1px solid var(--border); border-radius:var(--radius);
+    outline:none; transition:border-color .15s;
+  }
+  input[type=number]:focus{border-color:var(--blue)}
+  input[type=checkbox]{width:18px; height:18px; accent-color:var(--blue); cursor:pointer; flex:none}
+  .toggle-row{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+  .toggle-row h2{margin:0}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:1.25rem}
+  .card{background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px}
+  .card .lbl{font-size:12px; color:var(--text-2); margin:0 0 6px}
+  .card .val{font-size:19px; font-weight:600; margin:0}
+  .card .sub2{font-size:12px; color:var(--text-3); margin:4px 0 0}
+  .chart-box{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.25rem 1.5rem}
+  .legend{display:flex; flex-wrap:wrap; gap:16px; margin-bottom:12px; font-size:12px; color:var(--text-2)}
+  .legend span{display:flex; align-items:center; gap:5px}
+  .dot{width:11px; height:11px; border-radius:3px; display:inline-block}
+  .chart-wrap{position:relative; width:100%; height:300px}
+  .note{font-size:12.5px; color:var(--text-3); margin-top:1.25rem; line-height:1.7}
+  .note strong{color:var(--text-2); font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>財務人生模擬器</h1>
+    <p class="sub">調整任一數字，房貸、信貸、勞退專戶與退休金缺口都會即時重算。計算全在本機瀏覽器完成，不上傳。</p>
+    <button onclick="exportExcel()" style="margin-top:12px;padding:10px 18px;font-size:14px;font-weight:600;color:#fff;background:var(--teal);border:none;border-radius:10px;cursor:pointer">📊 產生逐年 Excel（每格含公式）</button>
+  </header>
+
+  <section style="border:2px solid var(--violet)">
+    <h2>💭 想花一筆錢？先算它的「未來代價」</h2>
+    <p class="hint">每次心動想花一筆大錢（醫美、旅遊、換車…），先填在這裡，看它其實是<strong>跟未來的你借的</strong>。數字會依你下方填的資料即時計算。</p>
+    <div class="grid">
+      <div><label>想花的金額（萬）</label><input type="number" id="spendAmt" value="50" step="5"></div>
+      <div><label>打算幾歲花</label><input type="number" id="spendAge" value="36" step="1"></div>
+    </div>
+    <div id="spend-result" style="margin-top:14px;padding:14px 16px;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;font-size:14px;line-height:1.8;color:var(--text)"></div>
+  </section>
+
+  <section>
+    <h2>基本資料</h2>
+    <div class="grid">
+      <div><label>目前年齡</label><input type="number" id="ageNow" value="35" step="1"></div>
+      <div><label>退休年齡</label><input type="number" id="ageRetire" value="60" step="1"></div>
+      <div><label>模擬到幾歲</label><input type="number" id="ageEnd" value="95" step="1"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>收支（萬元）</h2>
+    <div class="grid">
+      <div><label>目前存款</label><input type="number" id="cashNow" value="10" step="1"></div>
+      <div><label>現金安全水位（保留不動用・現值萬）</label><input type="number" id="cashFloor" value="30" step="5"></div>
+      <div><label>稅後月薪（到手）</label><input type="number" id="salaryMonth" value="8.5" step="0.5"></div>
+      <div><label>每月生活支出</label><input type="number" id="expenseMonth" value="4.5" step="0.5"></div>
+      <div><label>薪資成長率 %（轉折前）</label><input type="number" id="salaryGrowth1" value="5" step="0.5"></div>
+      <div><label>成長趨緩年齡</label><input type="number" id="salaryPivotAge" value="45" step="1"></div>
+      <div><label>薪資成長率 %（轉折後）</label><input type="number" id="salaryGrowth2" value="1" step="0.5"></div>
+      <div><label>薪資停止成長年齡</label><input type="number" id="salaryStopAge" value="52" step="1"></div>
+      <div><label>每年自由運用金（旅遊/醫美/孝親/醫療預備・現值萬/年）</label><input type="number" id="annualExtra" value="12" step="1"></div>
+    </div>
+    <div id="cashflow-readout" style="margin-top:14px;padding:12px 14px;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-2);line-height:1.6"></div>
+  </section>
+
+  <section>
+    <div class="toggle-row"><input type="checkbox" id="buyHouse" checked><h2>購屋計畫</h2></div>
+    <p class="hint">頭期款預設只用「現金」支付（0050 維持獨立不動）。若現金不足會顯示現金轉負，代表需要多存或動用 0050。</p>
+    <div class="grid">
+      <div><label>房屋總價（萬）</label><input type="number" id="housePrice" value="1200" step="10"></div>
+      <div><label>頭期款 %</label><input type="number" id="downPct" value="25" step="1"></div>
+      <div><label>貸款年限</label><input type="number" id="loanYears" value="30" step="1"></div>
+      <div><label>貸款年利率 %</label><input type="number" id="loanRate" value="2.5" step="0.1"></div>
+      <div><label>幾年後購屋</label><input type="number" id="yearsToBuy" value="10" step="1"></div>
+      <div><label>房屋增值 %/年</label><input type="number" id="houseAppr" value="2" step="0.5"></div>
+    </div>
+    <p class="hint" style="margin-top:10px">頭期款會先動用「現金安全水位」以上的現金，不足時自動賣 0050 補足，並在下方「資金調度事件」標示。</p>
+  </section>
+
+  <section>
+    <h2>0050 投資</h2>
+    <p class="hint">「目前部位」請填<strong>現在帳面市值</strong>（非成本）。報酬拆成「價差」與「配息」兩格避免重複計算：0050 近五年平均現金殖利率約 3%，可自行調整。</p>
+    <div class="grid">
+      <div><label>目前部位（萬・市值）</label><input type="number" id="etfNow" value="123" step="5"></div>
+      <div><label>每月投入（萬）</label><input type="number" id="etfMonthly" value="1.5" step="0.5"></div>
+      <div><label>年化價差報酬 %</label><input type="number" id="etfPriceReturn" value="5" step="0.5"></div>
+      <div><label>年配息率 %</label><input type="number" id="etfDivYield" value="3" step="0.1"></div>
+    </div>
+    <div class="toggle-row" style="margin-top:14px"><input type="checkbox" id="reinvestDiv" checked><label style="margin:0">股息再投入（配息滾回本金複利；取消則配息進現金）</label></div>
+  </section>
+
+  <section>
+    <div class="toggle-row"><input type="checkbox" id="hasLoan" checked><h2>信貸 / 提前還款試算</h2></div>
+    <p class="hint">填目前剩餘本金與每期還款；「一次性提前還款」用來試算某年拿一筆錢提前清償，能省多少利息、少幾期。填 0 則不提前還。</p>
+    <div class="grid">
+      <div><label>剩餘本金（萬）</label><input type="number" id="loanBalance" value="89" step="1"></div>
+      <div><label>年利率 %</label><input type="number" id="loanAnnualRate" value="2.7" step="0.1"></div>
+      <div><label>剩餘期數（月）</label><input type="number" id="loanRemainMonths" value="74" step="1"></div>
+      <div><label>每期還款（萬/月）</label><input type="number" id="loanPayment" value="1.3" step="0.05"></div>
+      <div><label>一次性提前還款（萬）</label><input type="number" id="loanLump" value="0" step="1"></div>
+      <div><label>幾年後執行</label><input type="number" id="loanLumpYear" value="2" step="1"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="toggle-row"><input type="checkbox" id="hasPension" checked><h2>退休金專戶（勞退新制）</h2></div>
+    <p class="hint">雇主每月依月提繳工資提繳（法定至少 6%），你可自願再提 0~6%（自提會從薪水扣、可節稅）。月提繳工資依分級表、上限 15 萬。滿 60 歲可請領，選月退則按平均餘命把餘額攤成月退金、餘額遞減，領到平均餘命（60歲約23~24年、約83~84歲）就領完——非終身（終身領的是勞保老年年金，另計）。目前餘額可至勞保局 e 化系統查詢後填入（＝累計提繳＋累計收益）。</p>
+    <div class="grid">
+      <div><label>目前專戶餘額（萬）</label><input type="number" id="pensionNow" value="53" step="1"></div>
+      <div><label>月提繳工資（萬・上限15）</label><input type="number" id="pensionWage" value="6" step="0.5"></div>
+      <div><label>雇主提繳率 %</label><input type="number" id="employerRate" value="6" step="1"></div>
+      <div><label>自願提繳率 %（0~6）</label><input type="number" id="selfRate" value="0" step="1"></div>
+      <div><label>專戶年化報酬 %</label><input type="number" id="pensionReturn" value="5" step="0.5"></div>
+      <div><label>請領年齡（≥60）</label><input type="number" id="pensionClaimAge" value="60" step="1"></div>
+      <div><label>月退領到幾歲（約平均餘命）</label><input type="number" id="pensionPayoutEndAge" value="84" step="1"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="toggle-row"><input type="checkbox" id="hasLaborIns" checked><h2>勞保老年年金（終身月領）</h2></div>
+    <p class="hint">與勞退不同，這是<strong>終身月領、隨物價調整</strong>的社會保險年金。法定請領年齡 65 歲（可提前，最多提早 5 年到 60，每年減 4%；或延後最多 5 年到 70，每年增 4%）。月領金額 ≈ 平均月投保薪資 × 年資 × 1.55%（採較高公式）。投保薪資有上限（目前約 4.58 萬）。此為簡化估算，實際以勞保局核定為準。</p>
+    <div class="grid">
+      <div><label>平均月投保薪資（萬・上限約4.58）</label><input type="number" id="liWage" value="4.58" step="0.1"></div>
+      <div><label>保險年資（年）</label><input type="number" id="liYears" value="35" step="1"></div>
+      <div><label>請領年齡（60~70）</label><input type="number" id="liClaimAge" value="65" step="1"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="toggle-row"><input type="checkbox" id="hasLumpExp" checked><h2>人生大額支出（一次性）</h2></div>
+    <p class="hint">模擬人生中的大筆花費（換車、房屋修繕、重大醫療、長照、子女／家庭支出等）。金額為現值，會在指定年齡從現金（不足則賣 0050）扣除。不需要就填 0。</p>
+    <div class="grid">
+      <div><label>大額支出① 金額（現值萬）</label><input type="number" id="lumpExp1" value="25" step="10"></div>
+      <div><label>① 幾歲發生</label><input type="number" id="lumpAge1" value="37" step="1"></div>
+      <div><label>大額支出② 金額（現值萬）</label><input type="number" id="lumpExp2" value="20" step="10"></div>
+      <div><label>② 幾歲發生</label><input type="number" id="lumpAge2" value="39" step="1"></div>
+      <div><label>大額支出③ 金額（現值萬）</label><input type="number" id="lumpExp3" value="0" step="10"></div>
+      <div><label>③ 幾歲發生</label><input type="number" id="lumpAge3" value="55" step="1"></div>
+      <div><label>大額支出④ 金額（現值萬）</label><input type="number" id="lumpExp4" value="0" step="10"></div>
+      <div><label>④ 幾歲發生</label><input type="number" id="lumpAge4" value="65" step="1"></div>
+      <div><label>大額支出⑤ 金額（現值萬）</label><input type="number" id="lumpExp5" value="0" step="10"></div>
+      <div><label>⑤ 幾歲發生</label><input type="number" id="lumpAge5" value="75" step="1"></div>
+    </div>
+  </section>
+    <div class="grid">
+      <div><label>退休後每月生活費（現值,萬）</label><input type="number" id="retireExpense" value="5" step="0.5"></div>
+      <div><label>通膨率 %</label><input type="number" id="inflation" value="2" step="0.5"></div>
+      <div><label>退休後投報率 %</label><input type="number" id="retireReturn" value="4" step="0.5"></div>
+      <div><label>安全提領率 %</label><input type="number" id="safeWithdrawRate" value="5" step="0.5"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>決策比較：頭期款買房 vs 投資 0050</h2>
+    <p class="hint">同一筆現金，拿去當頭期款買房、還是投入 0050，哪個 N 年後總資產較高？為求公平，假設兩情境「每月住房＋投資」總預算相同（取房貸與租金較高者），省下的錢都投入 0050。使用上方的房價、貸款利率／年限、房屋增值率與 0050 報酬參數。</p>
+    <div class="grid">
+      <div><label>比較金額（萬・頭期款/本金）</label><input type="number" id="cmpLump" value="450" step="10"></div>
+      <div><label>比較年數</label><input type="number" id="cmpYears" value="30" step="1"></div>
+      <div><label>月租金（萬・不買房時）</label><input type="number" id="cmpRent" value="2" step="0.5"></div>
+    </div>
+    <div class="cards" style="margin-top:16px;margin-bottom:0">
+      <div class="card"><p class="lbl">買房 N 年後總資產<br>（房屋淨值+投資差額）</p><p class="val" id="cmp-buy">-</p></div>
+      <div class="card"><p class="lbl">投資 0050 N 年後總資產</p><p class="val" id="cmp-invest">-</p></div>
+      <div class="card"><p class="lbl">結果</p><p class="val" id="cmp-winner">-</p><p class="sub2" id="cmp-winner-sub"></p></div>
+    </div>
+    <p class="note" style="margin-top:14px">未計入：買賣房交易成本（仲介、稅、裝潢維護）、租金逐年上漲、投資波動與流動性差異，以及「有自己的房子可住」的無形價值。這些會實質影響結果，數字僅供方向參考。</p>
+  </section>
+
+  <div style="display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+    <input type="checkbox" id="realTerms">
+    <label for="realTerms" style="margin:0;font-size:14px;color:var(--text)">以<strong>今日幣值</strong>顯示（扣除通膨，換算成現在的購買力）</label>
+  </div>
+
+  <div class="cards">
+    <div class="card"><p class="lbl">房貸月付</p><p class="val" id="m-payment">-</p></div>
+    <div class="card"><p class="lbl">房貸還清年齡</p><p class="val" id="m-payoff">-</p></div>
+    <div class="card"><p class="lbl">信貸提前還清</p><p class="val" id="m-loan">-</p><p class="sub2" id="m-loan-sub"></p></div>
+    <div class="card"><p class="lbl">退休金目標（安全提領率）<br>需要多少</p><p class="val" id="m-target">-</p></div>
+    <div class="card"><p class="lbl">退休時流動資產<br>（現金+0050）</p><p class="val" id="m-liquid">-</p></div>
+    <div class="card"><p class="lbl">退休時勞退專戶</p><p class="val" id="m-pension">-</p><p class="sub2" id="m-pension-sub"></p></div>
+    <div class="card"><p class="lbl">勞保老年年金（終身）</p><p class="val" id="m-laborins">-</p><p class="sub2" id="m-laborins-sub"></p></div>
+    <div class="card"><p class="lbl">退休可用資產合計<br>會有多少</p><p class="val" id="m-usable">-</p><p class="sub2">流動資產＋可用勞退</p></div>
+    <div class="card"><p class="lbl" id="m-gap-label">盈餘 / 缺口</p><p class="val" id="m-gap">-</p><p class="sub2" id="m-gap-sub">會有多少 − 需要多少</p></div>
+    <div class="card"><p class="lbl">資產能撐到</p><p class="val" id="m-end">-</p></div>
+  </div>
+
+  <div class="chart-box">
+    <div class="legend">
+      <span><span class="dot" style="background:var(--blue)"></span>現金</span>
+      <span><span class="dot" style="background:var(--teal)"></span>0050 市值</span>
+      <span id="legend-house"><span class="dot" style="background:var(--amber)"></span>房屋淨值</span>
+      <span id="legend-pension"><span class="dot" style="background:var(--violet)"></span>勞退專戶（虛線・60歲後月退遞減、84歲領完）</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="netWorthChart" role="img" aria-label="淨資產隨年齡成長堆疊圖，含現金、0050市值、房屋淨值與勞退專戶">依輸入資料計算的淨資產成長趨勢圖。</canvas>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-top:1.25rem">
+    <div class="legend">
+      <span><span class="dot" style="background:var(--blue)"></span>月薪（萬）隨年齡變化</span>
+    </div>
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="salaryChart" role="img" aria-label="月薪隨年齡的成長曲線，轉折年齡前後採不同成長率，退休後歸零">月薪隨年齡先成長後趨緩、退休歸零的曲線。</canvas>
+    </div>
+  </div>
+
+  <section style="margin-top:1.25rem">
+    <h2>🔀 資金調度事件（何時要賣一項補另一項）</h2>
+    <p class="hint">當某個帳戶不夠、必須動用另一個帳戶時，會列在這裡，讓你一眼看出哪個時間點、哪項資產撐不住。</p>
+    <div id="events-list" style="font-size:14px;line-height:1.9"></div>
+  </section>
+
+  <p class="note">
+    <strong>模型假設：</strong>現金（活存）年化 1%；工作期 0050 依「價差報酬」複利、配息依「年配息率」發放（可選再投入）；退休後 0050 改用較保守的「退休後投報率」；房貸與信貸皆本息攤還；購屋頭期款先動用現金、不足則賣 0050 補、再不足現金轉負（代表買不起）；勞退每月依月提繳工資 ×（雇主率＋自提率）累積、按專戶報酬複利，滿請領年齡後改按月退逐月提領（餘額遞減、領到平均餘命領完），提領金額計入退休期間收入；退休後薪資歸零、依通膨調整生活費，不足額優先動用 0050 再動用現金。退休金目標＝退休當年年支出 ÷ 安全提領率（簡化估算）。所有金額為「名目值」未扣通膨。
+    <br><br>
+    這是簡化估算工具，<strong>不是投資或財務建議</strong>——0050 實際報酬會波動、不會是穩定曲線；勞退實際收益以勞保局公告為準。重大決策建議諮詢合格理財顧問。
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+function toNum(id){return parseFloat(document.getElementById(id).value)||0;}
+function chk(id){return document.getElementById(id).checked;}
+function amortPayment(principal, annualRatePct, years){
+  const n=Math.round(years*12), r=annualRatePct/100/12;
+  if(n<=0) return 0;
+  if(r===0) return principal/n;
+  const f=Math.pow(1+r,n);
+  return principal*r*f/(f-1);
+}
+function monthlyRate(annualPct){return Math.pow(1+annualPct/100,1/12)-1;}
+function fmt(n){return Math.round(n).toLocaleString('zh-Hant-TW');}
+
+function loanSimLump(principal, annualRatePct, monthlyPayment, lumpAmount, lumpMonth){
+  let bal=principal, r=annualRatePct/100/12, months=0, interest=0;
+  while(bal>0 && months<2400){
+    if(months===lumpMonth && lumpAmount>0){ bal-=lumpAmount; if(bal<=0){ bal=0; break; } }
+    const i=bal*r;
+    const p=monthlyPayment-i;
+    if(p<=0) return {paidOff:false, months:Infinity, interest:Infinity};
+    if(p>=bal){ interest+=i; bal=0; months++; break; }
+    bal-=p; interest+=i; months++;
+  }
+  return {paidOff:bal<=0, months, interest};
+}
+
+function computeCompare(){
+  const L=toNum('cmpLump')*10000;
+  const T=toNum('cmpYears');
+  const rent=toNum('cmpRent')*10000;
+  const P=toNum('housePrice')*10000;
+  const rate=toNum('loanRate');
+  const loanYears=toNum('loanYears');
+  const appr=toNum('houseAppr');
+  const priceReturn=toNum('etfPriceReturn');
+  const divYield=toNum('etfDivYield');
+
+  const principal=Math.max(P-L,0);
+  const mortgage=principal>0?amortPayment(principal,rate,loanYears):0;
+  const budget=Math.max(mortgage,rent);
+
+  let houseVal=P, loanBal=principal, loanLeft=Math.round(loanYears*12);
+  let buyerETF=0, renterETF=L;
+  const mp=monthlyRate(priceReturn), md=(divYield/100)/12, ma=monthlyRate(appr);
+  const months=Math.max(0,Math.round(T*12));
+  for(let m=0;m<months;m++){
+    let bh=0;
+    if(loanLeft>0){ const i=loanBal*rate/100/12; let pr=mortgage-i; if(pr<0)pr=0; loanBal-=pr; if(loanBal<0)loanBal=0; loanLeft--; bh=mortgage; }
+    const bi=budget-bh; if(bi>0) buyerETF+=bi;
+    const ri=budget-rent; if(ri>0) renterETF+=ri;
+    buyerETF*=1+mp; buyerETF+=buyerETF*md;
+    renterETF*=1+mp; renterETF+=renterETF*md;
+    houseVal*=1+ma;
+  }
+  return {buyerTotal:(houseVal-loanBal)+buyerETF, renterTotal:renterETF, T};
+}
+
+let chart, salaryChart;
+
+function simulate(extra){
+  const ageNow=toNum('ageNow'), ageRetire=toNum('ageRetire'), ageEnd=toNum('ageEnd');
+  const cashNow=toNum('cashNow')*10000;
+  const cashFloor=toNum('cashFloor')*10000;
+  const salaryInit=toNum('salaryMonth')*10000;
+  const expenseInit=toNum('expenseMonth')*10000;
+  const salaryGrowth1=toNum('salaryGrowth1'), salaryPivotAge=toNum('salaryPivotAge'), salaryGrowth2=toNum('salaryGrowth2'), salaryStopAge=toNum('salaryStopAge');
+
+  const buyHouse=chk('buyHouse');
+  const housePrice=toNum('housePrice')*10000, downPct=toNum('downPct');
+  const hLoanYears=toNum('loanYears'), hLoanRate=toNum('loanRate');
+  const yearsToBuy=toNum('yearsToBuy'), houseAppr=toNum('houseAppr');
+
+  const etfNow=toNum('etfNow')*10000, etfMonthlyAmt=toNum('etfMonthly')*10000;
+  const etfPriceReturn=toNum('etfPriceReturn'), etfDivYield=toNum('etfDivYield');
+  const reinvest=chk('reinvestDiv');
+
+  const annualExtra=toNum('annualExtra')*10000;
+  const hasLumpExp=chk('hasLumpExp');
+  const lumps=[['lumpExp1','lumpAge1'],['lumpExp2','lumpAge2'],['lumpExp3','lumpAge3'],['lumpExp4','lumpAge4'],['lumpExp5','lumpAge5']].map(([e,ag])=>[toNum(e)*10000,Math.round((toNum(ag)-ageNow)*12)]);
+
+  const hasLoan=chk('hasLoan');
+  const loanBal0=toNum('loanBalance')*10000, loanRate=toNum('loanAnnualRate');
+  const loanRemain=toNum('loanRemainMonths'), loanPay=toNum('loanPayment')*10000;
+  const loanLump=toNum('loanLump')*10000;
+  const loanLumpMonth=Math.round(toNum('loanLumpYear')*12);
+
+  const hasPension=chk('hasPension');
+  const pensionNow=toNum('pensionNow')*10000;
+  const pensionWageInit=Math.min(toNum('pensionWage'),15)*10000;
+  const employerRate=toNum('employerRate'), selfRate=toNum('selfRate');
+  const pensionReturn=toNum('pensionReturn');
+  const pensionClaimAge=Math.max(60,toNum('pensionClaimAge'));
+  const pensionPayoutEndAge=toNum('pensionPayoutEndAge');
+
+  const hasLaborIns=chk('hasLaborIns');
+  const liWage=toNum('liWage')*10000;
+  const liYears=toNum('liYears');
+  const liClaimAge=toNum('liClaimAge');
+  let liAdj=1+0.04*Math.max(-5,Math.min(5,liClaimAge-65));
+  const liMonthlyToday=hasLaborIns?(liWage*liYears*0.0155*liAdj):0;
+  const liClaimMonth=Math.round((liClaimAge-ageNow)*12);
+
+  const retireExpenseInit=toNum('retireExpense')*10000;
+  const inflation=toNum('inflation'), retireReturn=toNum('retireReturn');
+  const swr=toNum('safeWithdrawRate')||4;
+
+  const totalMonths=Math.max(1,Math.round((ageEnd-ageNow)*12));
+  const retirementMonth=Math.round((ageRetire-ageNow)*12);
+  const buyMonth=buyHouse?Math.round(yearsToBuy*12):-1;
+  const pensionClaimMonth=Math.round((pensionClaimAge-ageNow)*12);
+  const extraMonth=extra?Math.round((extra.age-ageNow)*12):-1;
+  const events=[]; let retireSellEtfLogged=false, floorBreachLogged=false;
+  const floorAt=m=>cashFloor*Math.pow(1+inflation/100,m/12);
+
+  let cash=cashNow, etf=etfNow, salary=salaryInit, expense=expenseInit;
+  let pensionWage=pensionWageInit, pension=hasPension?pensionNow:0;
+  let pensionClaimed=false, pensionPayout=0;
+  let houseValue=0, hLoanBalance=0, hPayment=0, hMonthsLeft=0, houseBought=false;
+  let cLoanBalance=hasLoan?loanBal0:0, cPayment=loanPay, cActive=hasLoan&&cLoanBalance>0;
+  let mortgagePayoffAge=null, depletedAge=null, retireActive=false;
+
+  const years=[],cashS=[],etfS=[],houseS=[],pensionS=[],salaryS=[];
+
+  for(let m=0;m<totalMonths;m++){
+    if(m>0 && m%12===0){
+      const curAge=ageNow+m/12;
+      let g;
+      if(curAge>=salaryStopAge) g=0;
+      else if(curAge<salaryPivotAge) g=salaryGrowth1;
+      else g=salaryGrowth2;
+      salary*=1+g/100;
+      expense*=1+inflation/100;
+      pensionWage=Math.min(pensionWage*(1+g/100),15*10000);
+    }
+    if(m===retirementMonth){
+      salary=0;
+      expense=retireExpenseInit*Math.pow(1+inflation/100,m/12);
+      retireActive=true;
+    }
+    if(buyHouse && m===buyMonth){
+      const dp=housePrice*downPct/100;
+      let need=dp; const fl=floorAt(m);
+      const cashUsable=Math.max(0,cash-fl);
+      const fromCash=Math.min(cashUsable,need); cash-=fromCash; need-=fromCash;
+      if(need>0){ const fromEtf=Math.min(etf,need); if(fromEtf>0){ etf-=fromEtf; need-=fromEtf; events.push({age:ageNow+m/12,type:'頭期款',msg:'買房頭期現金不足，賣出 0050 約 '+Math.round(fromEtf/10000)+' 萬支應'}); } }
+      if(need>0){ cash-=need; events.push({age:ageNow+m/12,type:'頭期款',msg:'資金仍不足 '+Math.round(need/10000)+' 萬，現金轉負（買不起）'}); }
+      houseValue=housePrice; hLoanBalance=housePrice-dp;
+      hPayment=amortPayment(hLoanBalance,hLoanRate,hLoanYears);
+      hMonthsLeft=Math.round(hLoanYears*12); houseBought=true;
+    }
+
+    if(hasLumpExp){
+      for(let li=0;li<lumps.length;li++){
+        if(lumps[li][0]>0 && m===lumps[li][1]){
+          let need=lumps[li][0]*Math.pow(1+inflation/100,m/12);
+          const fl=floorAt(m); const cashUsable=Math.max(0,cash-fl);
+          const fc=Math.min(cashUsable,need); cash-=fc; need-=fc;
+          if(need>0){ const fe=Math.min(etf,need); if(fe>0){ etf-=fe; need-=fe; events.push({age:ageNow+m/12,type:'大額支出',msg:'大額支出'+(li+1)+' 現金不足，賣出 0050 約 '+Math.round(fe/10000)+' 萬支應'}); } }
+          if(need>0){ cash-=need; }
+        }
+      }
+    }
+    if(extra && m===extraMonth){
+      let need=extra.amt*Math.pow(1+inflation/100,m/12);
+      const fl=floorAt(m); const cu=Math.max(0,cash-fl);
+      const fc=Math.min(cu,need); cash-=fc; need-=fc;
+      if(need>0){ const fe=Math.min(etf,need); etf-=fe; need-=fe; }
+      if(need>0){ cash-=need; }
+    }
+
+    let outflow=expense;
+    if(annualExtra>0){ outflow+=(annualExtra/12)*Math.pow(1+inflation/100,m/12); }
+    if(houseBought && hMonthsLeft>0){
+      outflow+=hPayment;
+      const ip=hLoanBalance*(hLoanRate/100/12);
+      hLoanBalance-=(hPayment-ip); if(hLoanBalance<0)hLoanBalance=0;
+      hMonthsLeft--;
+      if(hMonthsLeft===0 && mortgagePayoffAge===null) mortgagePayoffAge=ageNow+(m+1)/12;
+    }
+    if(cActive && cLoanBalance>0){
+      if(loanLump>0 && m===loanLumpMonth){
+        const lp=Math.min(loanLump,cLoanBalance);
+        cLoanBalance-=lp; outflow+=lp;
+        if(cLoanBalance<=0){ cLoanBalance=0; cActive=false; }
+      }
+      if(cActive && cLoanBalance>0){
+        const ip=cLoanBalance*(loanRate/100/12);
+        let pay=cPayment;
+        if(pay-ip>=cLoanBalance){ pay=cLoanBalance+ip; cLoanBalance=0; cActive=false; }
+        else { cLoanBalance-=(pay-ip); }
+        outflow+=pay;
+      }
+    }
+
+    let selfContrib=0;
+    if(hasPension && !retireActive){
+      selfContrib=pensionWage*selfRate/100;
+      pension+=selfContrib+pensionWage*employerRate/100;
+    }
+
+    let pensionIncome=0;
+    if(hasPension){
+      if(!pensionClaimed && m>=pensionClaimMonth){
+        const payoutYears=Math.max(1,pensionPayoutEndAge-pensionClaimAge);
+        pensionPayout=amortPayment(pension,pensionReturn,payoutYears);
+        pensionClaimed=true;
+      }
+      pension*=1+monthlyRate(pensionReturn);
+      if(pensionClaimed && pension>0){
+        const pay=Math.min(pensionPayout,pension);
+        pension-=pay; pensionIncome=pay;
+      }
+    }
+
+    let liIncome=0;
+    if(hasLaborIns && m>=liClaimMonth){
+      liIncome=liMonthlyToday*Math.pow(1+inflation/100,m/12);
+    }
+
+    const net=salary+pensionIncome+liIncome-selfContrib-outflow;
+    if(!retireActive){
+      let contribution=etfMonthlyAmt;
+      const avail=cash+net;
+      if(contribution>Math.max(0,avail)) contribution=Math.max(0,avail);
+      cash+=net-contribution;
+      etf+=contribution;
+    } else {
+      let short=-net;
+      if(short>0){
+        const fl=floorAt(m);
+        const cashUsable=Math.max(0,cash-fl);
+        const w1=Math.min(cashUsable,short); cash-=w1; short-=w1;
+        if(short>0){
+          const w2=Math.min(etf,short);
+          if(w2>0 && !retireSellEtfLogged){ events.push({age:ageNow+m/12,type:'退休提領',msg:'現金已降到安全水位，開始賣 0050 支應退休生活'}); retireSellEtfLogged=true; }
+          etf-=w2; short-=w2;
+        }
+        if(short>0){
+          cash-=short;
+          if(cash<fl && !floorBreachLogged && etf<=0){ events.push({age:ageNow+m/12,type:'警訊',msg:'0050 已用完、現金跌破安全水位，退休金開始吃老本'}); floorBreachLogged=true; }
+          if(cash<0 && depletedAge===null){ depletedAge=ageNow+(m+1)/12; events.push({age:depletedAge,type:'資產用罄',msg:'所有可動用資產用罄'}); }
+        }
+      } else { cash+=net; }
+    }
+
+    if(!retireActive){
+      etf*=1+monthlyRate(etfPriceReturn);
+      const div=etf*(etfDivYield/100)/12;
+      if(reinvest) etf+=div; else cash+=div;
+    } else {
+      etf*=1+monthlyRate(retireReturn);
+    }
+    if(cash>0) cash*=1+monthlyRate(1);
+    if(houseBought) houseValue*=1+monthlyRate(houseAppr);
+
+    if((m+1)%12===0){
+      years.push(Math.round(ageNow+(m+1)/12));
+      cashS.push(cash/10000);
+      etfS.push(etf/10000);
+      houseS.push(houseBought?(houseValue-hLoanBalance)/10000:0);
+      pensionS.push(hasPension?pension/10000:0);
+      salaryS.push(salary/10000);
+    }
+  }
+
+  const rIdx=years.findIndex(a=>a>=ageRetire);
+  const idx=rIdx===-1?years.length-1:rIdx;
+  const liquidAtRetire=(cashS[idx]||0)+(etfS[idx]||0);
+  const pensionAtRetire=hasPension?(pensionS[idx]||0):0;
+  const pensionUsableAtRetire=(ageRetire>=60)?pensionAtRetire:0;
+  const expenseAtRetire=retireExpenseInit*Math.pow(1+inflation/100,Math.max(0,ageRetire-ageNow));
+  const target=expenseAtRetire*12/(swr/100)/10000;
+  const gap=(liquidAtRetire+pensionUsableAtRetire)-target;
+
+  let loanResult=null;
+  if(hasLoan){
+    const base=loanSimLump(loanBal0,loanRate,loanPay,0,0);
+    const withLump=loanSimLump(loanBal0,loanRate,loanPay,loanLump,loanLumpMonth);
+    loanResult={base,withLump,hasLump:loanLump>0};
+  }
+
+  return {years,cashS,etfS,houseS,pensionS,salaryS,mortgagePayoffAge,depletedAge,
+    liquidAtRetire,pensionAtRetire,pensionUsableAtRetire,target,gap,
+    buyHouse,hasPension,hasLoan,ageRetire,ageEnd,hPayment,loanResult,
+    pensionMonthlyPayout:pensionPayout,pensionClaimAge,pensionPayoutEndAge,
+    hasLaborIns,liMonthlyToday,liClaimAge,events,cashFloor,
+    endTotal:(cashS[cashS.length-1]||0)+(etfS[etfS.length-1]||0)+(hasPension?(pensionS[pensionS.length-1]||0):0)};
+}
+
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+
+function render(){
+  const r=simulate();
+
+  const realOn=chk('realTerms');
+  const _infl=toNum('inflation')/100, _an=toNum('ageNow');
+  const rf=age=>realOn?1/Math.pow(1+_infl,age-_an):1;
+  const _unit=realOn?' 萬(今值)':' 萬';
+
+  // 想花一筆錢：未來代價試算
+  (function(){
+    const el=document.getElementById('spend-result'); if(!el) return;
+    const amt=toNum('spendAmt'), spAge=toNum('spendAge');
+    const ageRet=toNum('ageRetire'), ageNow0=toNum('ageNow');
+    const etfTot=(toNum('etfPriceReturn')+toNum('etfDivYield'))/100;
+    const yrsToRet=Math.max(0,ageRet-spAge);
+    const fvRet=amt*Math.pow(1+etfTot,yrsToRet); // 到退休名目
+    const fvRetToday=fvRet/Math.pow(1+_infl,ageRet-ageNow0);
+    const monExpRet=toNum('retireExpense'); // 今日萬/月
+    const months=monExpRet>0?fvRetToday/monExpRet:0;
+    // 對資產壽命的影響
+    const base=r;
+    const withSpend=simulate({amt:amt*10000,age:spAge});
+    const endDiff=(base.endTotal-withSpend.endTotal);
+    let deplMsg='';
+    if(base.depletedAge && withSpend.depletedAge){
+      const d=Math.round((base.depletedAge-withSpend.depletedAge)*10)/10;
+      if(d>0) deplMsg='，資產見底提早約 '+d+' 年';
+    } else if(!base.depletedAge && withSpend.depletedAge){
+      deplMsg='，甚至會讓資產在 '+Math.round(withSpend.depletedAge)+' 歲用罄';
+    }
+    if(amt<=0){ el.innerHTML='填入金額後，這裡會告訴你這筆錢的未來代價。'; }
+    else el.innerHTML=
+      '這 <strong>'+fmt(amt)+' 萬</strong>，如果不花、拿去投資：<br>'+
+      '• 到你 '+ageRet+' 歲退休時 ≈ <strong style="color:var(--violet)">'+fmt(fvRet)+' 萬</strong>（今日幣值約 '+fmt(fvRetToday)+' 萬）<br>'+
+      '• 約等於退休後 <strong>'+months.toFixed(1)+' 個月</strong>的生活費<br>'+
+      '• 花下去，你 '+toNum('ageEnd')+' 歲的結餘會少約 <strong style="color:var(--red-text)">'+fmt(endDiff)+' 萬</strong>'+deplMsg;
+  })();
+
+  // 資金調度事件
+  (function(){
+    const el=document.getElementById('events-list'); if(!el) return;
+    const evs=(r.events||[]).slice().sort((a,b)=>a.age-b.age);
+    if(evs.length===0){ el.innerHTML='<span style="color:var(--text-3)">目前沒有需要「賣一項補另一項」的情況——各帳戶都能自給自足。</span>'; return; }
+    const color=t=>t==='資產用罄'||t==='警訊'?'var(--red-text)':(t==='頭期款'?'var(--amber)':'var(--violet)');
+    el.innerHTML=evs.map(e=>'<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="flex:none;font-weight:600;color:'+color(e.type)+'">'+Math.round(e.age)+' 歲</span><span>'+e.msg+'</span></div>').join('');
+  })();
+
+  const _sal=toNum('salaryMonth'),_exp=toNum('expenseMonth'),_etf=toNum('etfMonthly');
+  const _loan=chk('hasLoan')?toNum('loanPayment'):0;
+  const _surp=_sal-_exp-_loan-_etf;
+  const _col=_surp>=0?'var(--text)':'var(--red-text)';
+  document.getElementById('cashflow-readout').innerHTML=
+    '目前每月現金流：薪資 '+_sal+' − 生活費 '+_exp+(_loan?' − 信貸 '+_loan:'')+' − 0050定投 '+_etf+
+    ' ＝ <strong style="color:'+_col+'">存入現金 '+_surp.toFixed(1)+' 萬/月</strong>（單位：萬）。'+
+    '這就是「現金」曲線的來源——沒有獨立「儲蓄」欄位，儲蓄＝薪資扣掉生活費、房貸、信貸、0050定投後的結餘，自動累積成現金。'+
+    '此為<strong>起始值</strong>，會隨薪資成長、信貸還清、購屋後扣房貸而逐年變化。';
+
+  document.getElementById('m-payment').textContent=r.buyHouse?fmt(r.hPayment/10000)+' 萬/月':'未規劃';
+  document.getElementById('m-payoff').textContent=r.buyHouse?(r.mortgagePayoffAge?Math.round(r.mortgagePayoffAge)+' 歲':'期間內未還清'):'-';
+
+  const loanEl=document.getElementById('m-loan'), loanSub=document.getElementById('m-loan-sub');
+  if(!r.hasLoan){ loanEl.textContent='未使用'; loanSub.textContent=''; }
+  else if(!r.loanResult.base.paidOff){ loanEl.textContent='還款額過低'; loanSub.textContent='每期還款不足以覆蓋利息'; }
+  else if(!r.loanResult.hasLump){
+    loanEl.textContent=r.loanResult.base.months+' 期還清';
+    loanSub.textContent='總利息 '+fmt(r.loanResult.base.interest/10000)+' 萬｜填「一次性提前還款」看效果';
+  } else {
+    const savedM=r.loanResult.base.months-r.loanResult.withLump.months;
+    const savedI=(r.loanResult.base.interest-r.loanResult.withLump.interest)/10000;
+    loanEl.textContent='提前 '+savedM+' 期';
+    loanSub.textContent=r.loanResult.withLump.months+' 期還清・省利息 '+fmt(savedI)+' 萬';
+  }
+
+  document.getElementById('m-target').textContent=fmt(r.target*rf(r.ageRetire))+_unit;
+  document.getElementById('m-liquid').textContent=fmt(r.liquidAtRetire*rf(r.ageRetire))+_unit;
+  const penEl=document.getElementById('m-pension');
+  const penSub=document.getElementById('m-pension-sub');
+  if(!r.hasPension){ penEl.textContent='未計入'; penSub.textContent=''; }
+  else {
+    penEl.textContent=fmt(r.pensionAtRetire*rf(r.ageRetire))+_unit+(r.ageRetire<60?'（60歲後可領）':'');
+    if(r.pensionMonthlyPayout>0){
+      penSub.textContent='月退約 '+fmt(r.pensionMonthlyPayout)+' 元／月（'+r.pensionClaimAge+'→'+r.pensionPayoutEndAge+'歲）';
+    } else { penSub.textContent='月退金額於請領年齡計算'; }
+  }
+
+  const liEl=document.getElementById('m-laborins');
+  const liSub=document.getElementById('m-laborins-sub');
+  if(!r.hasLaborIns){ liEl.textContent='未計入'; liSub.textContent=''; }
+  else {
+    liEl.textContent='約 '+fmt(r.liMonthlyToday)+' 元／月';
+    liSub.textContent=r.liClaimAge+' 歲起終身月領（今日幣值，隨物價調整）';
+  }
+
+  const usable=r.liquidAtRetire+r.pensionUsableAtRetire;
+  document.getElementById('m-usable').textContent=fmt(usable*rf(r.ageRetire))+_unit;
+
+  const gapEl=document.getElementById('m-gap');
+  const gapLabel=document.getElementById('m-gap-label');
+  const gapSub=document.getElementById('m-gap-sub');
+  if(r.gap>=0){
+    gapLabel.textContent='退休金盈餘（有剩）';
+    gapEl.textContent='多出 '+fmt(r.gap*rf(r.ageRetire))+_unit;
+    gapEl.style.color='var(--green-text)';
+    gapSub.textContent='可用資產超過目標';
+  } else {
+    gapLabel.textContent='退休金缺口（不夠）';
+    gapEl.textContent='還差 '+fmt(-r.gap*rf(r.ageRetire))+_unit;
+    gapEl.style.color='var(--red-text)';
+    gapSub.textContent='可用資產不足目標';
+  }
+
+  const endEl=document.getElementById('m-end');
+  if(r.depletedAge){ endEl.textContent=Math.round(r.depletedAge)+' 歲用罄'; endEl.style.color='var(--red-text)'; }
+  else {
+    const last=(r.cashS[r.cashS.length-1]||0)+(r.etfS[r.etfS.length-1]||0)+(r.hasPension?(r.pensionS[r.pensionS.length-1]||0):0);
+    endEl.textContent=r.ageEnd+' 歲仍有 '+fmt(last*rf(r.ageEnd))+_unit; endEl.style.color='var(--green-text)';
+  }
+
+  const c=computeCompare();
+  const cmpRf=realOn?1/Math.pow(1+_infl,toNum('cmpYears')):1;
+  document.getElementById('cmp-buy').textContent=fmt(c.buyerTotal/10000*cmpRf)+_unit;
+  document.getElementById('cmp-invest').textContent=fmt(c.renterTotal/10000*cmpRf)+_unit;
+  const diff=Math.abs(c.buyerTotal-c.renterTotal)/10000;
+  const w=document.getElementById('cmp-winner'), ws=document.getElementById('cmp-winner-sub');
+  if(Math.round(diff)===0){ w.textContent='幾乎相同'; w.style.color='var(--text)'; ws.textContent='差距 <1 萬'; }
+  else if(c.buyerTotal>c.renterTotal){ w.textContent='買房勝'; w.style.color='var(--amber)'; ws.textContent=c.T+' 年後多 '+fmt(diff)+' 萬'; }
+  else { w.textContent='投資 0050 勝'; w.style.color='var(--teal)'; ws.textContent=c.T+' 年後多 '+fmt(diff)+' 萬'; }
+
+  document.getElementById('legend-house').style.display=r.buyHouse?'flex':'none';
+  document.getElementById('legend-pension').style.display=r.hasPension?'flex':'none';
+
+  const blue=cssVar('--blue'),teal=cssVar('--teal'),amber=cssVar('--amber'),violet=cssVar('--violet');
+  const dfl=arr=>realOn?arr.map((v,i)=>v*rf(r.years[i])):arr;
+  const ds=[
+    {label:'現金',data:dfl(r.cashS),borderColor:blue,backgroundColor:'rgba(42,120,214,0.18)',fill:true,stack:'s',tension:0,pointRadius:0,borderWidth:2},
+    {label:'0050 市值',data:dfl(r.etfS),borderColor:teal,backgroundColor:'rgba(27,175,122,0.18)',fill:true,stack:'s',tension:0,pointRadius:0,borderWidth:2}
+  ];
+  if(r.buyHouse) ds.push({label:'房屋淨值',data:dfl(r.houseS),borderColor:amber,backgroundColor:'rgba(201,133,0,0.18)',fill:true,stack:'s',tension:0,pointRadius:0,borderWidth:2});
+  if(r.hasPension) ds.push({label:'勞退專戶',data:dfl(r.pensionS),borderColor:violet,backgroundColor:'transparent',fill:false,stack:'pension',tension:0.15,pointRadius:0,borderWidth:2,borderDash:[6,4]});
+
+  const tick=cssVar('--text-3'),grid=cssVar('--border');
+  if(chart){ chart.data.labels=r.years; chart.data.datasets=ds; chart.update(); }
+  else{
+    chart=new Chart(document.getElementById('netWorthChart'),{
+      type:'line', data:{labels:r.years,datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        scales:{y:{stacked:true,ticks:{color:tick,callback:v=>fmt(v)+'萬'},grid:{color:grid}},
+                x:{title:{display:true,text:'年齡',color:tick},ticks:{color:tick},grid:{color:grid}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+' 萬'}}}}
+    });
+  }
+
+  const salDs=[{label:'月薪',data:r.salaryS,borderColor:blue,backgroundColor:'rgba(42,120,214,0.12)',fill:true,tension:0.15,pointRadius:0,borderWidth:2}];
+  if(salaryChart){ salaryChart.data.labels=r.years; salaryChart.data.datasets=salDs; salaryChart.update(); }
+  else{
+    salaryChart=new Chart(document.getElementById('salaryChart'),{
+      type:'line', data:{labels:r.years,datasets:salDs},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        scales:{y:{beginAtZero:true,ticks:{color:tick,callback:v=>v+'萬'},grid:{color:grid}},
+                x:{title:{display:true,text:'年齡',color:tick},ticks:{color:tick},grid:{color:grid}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'月薪 '+c.parsed.y.toFixed(1)+' 萬'}}}}
+    });
+  }
+}
+
+// 這段將原封不動放進 HTML。依賴全域 XLSX 與 toNum(id)。
+function buildFinanceWorkbook(){
+  const g=id=>toNum(id);
+  const P=[
+    ['目前年齡',g('ageNow')],['退休年齡',g('ageRetire')],['模擬到幾歲',g('ageEnd')],['目前存款',g('cashNow')],['現金安全水位',g('cashFloor')],
+    ['稅後月薪',g('salaryMonth')],['月生活支出',g('expenseMonth')],['薪資成長率前%',g('salaryGrowth1')],['成長趨緩年齡',g('salaryPivotAge')],
+    ['薪資成長率後%',g('salaryGrowth2')],['薪資停止成長年齡',g('salaryStopAge')],['每年自由運用金',g('annualExtra')],['通膨率%',g('inflation')],
+    ['房屋總價',g('housePrice')],['頭期款%',g('downPct')],['貸款年限',g('loanYears')],['貸款年利率%',g('loanRate')],['幾年後購屋',g('yearsToBuy')],['房屋增值%',g('houseAppr')],
+    ['0050目前部位',g('etfNow')],['每月投入',g('etfMonthly')],['年化價差報酬%',g('etfPriceReturn')],['年配息率%',g('etfDivYield')],
+    ['信貸剩餘本金',g('loanBalance')],['信貸年利率%',g('loanAnnualRate')],['信貸每期還款',g('loanPayment')],
+    ['勞退目前餘額',g('pensionNow')],['月提繳工資',g('pensionWage')],['雇主提繳率%',g('employerRate')],['自願提繳率%',g('selfRate')],
+    ['勞退年化報酬%',g('pensionReturn')],['勞退請領年齡',g('pensionClaimAge')],['勞退月退終止年齡',g('pensionPayoutEndAge')],
+    ['勞保月投保薪資',g('liWage')],['勞保年資',g('liYears')],['勞保請領年齡',g('liClaimAge')],['退休後每月生活費',g('retireExpense')],['退休後投報率%',g('retireReturn')],
+    ['大額1金額',g('lumpExp1')],['大額1年齡',g('lumpAge1')],['大額2金額',g('lumpExp2')],['大額2年齡',g('lumpAge2')],['大額3金額',g('lumpExp3')],['大額3年齡',g('lumpAge3')],
+    ['大額4金額',g('lumpExp4')],['大額4年齡',g('lumpAge4')],['大額5金額',g('lumpExp5')],['大額5年齡',g('lumpAge5')],
+    ['房貸月付',0],['勞保月退today',0],['房貸初始本金',0],['買房年齡',0],['etf總報酬',0],['勞保調整',0],
+  ];
+  const wsP=XLSX.utils.aoa_to_sheet(P);
+  wsP['B49']={t:'n',f:'B51*(B17/1200)*(1+B17/1200)^(B16*12)/((1+B17/1200)^(B16*12)-1)'};
+  wsP['B50']={t:'n',f:'B34*B35*0.0155*B54'};
+  wsP['B51']={t:'n',f:'B14*(1-B15/100)'};
+  wsP['B52']={t:'n',f:'B1+B18'};
+  wsP['B53']={t:'n',f:'(B22+B23)/100'};
+  wsP['B54']={t:'n',f:'1+0.04*MAX(-5,MIN(5,B36-65))'};
+  wsP['!cols']=[{wch:16},{wch:12}];
+  const pr='參數!$B$';
+  const headers=['年齡','月薪(萬)','年支出(萬)','房貸餘額','房貸年繳','信貸餘額','信貸年繳','勞退專戶','勞退月退(月)','勞退年領','勞保年金(年)','一次性支出','0050市值','現金','房屋淨值','淨資產','_月提繳','_房價','_薪資基數','_通膨','_勞退鎖定','_例行淨流','_樓地板','_從現金','_從0050','_動用前現金','_需動用資產'];
+  const cols=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA'];
+  const ageNow=g('ageNow'),ageEnd=g('ageEnd'),nrows=Math.round(ageEnd-ageNow+1);
+  const wsY={}; headers.forEach((h,i)=>wsY[cols[i]+'1']={t:'s',v:h});
+  const set=(col,R,f)=>{ wsY[col+R]=(typeof f==='number')?{t:'n',v:f}:{t:'n',f:f}; };
+  for(let i=0;i<nrows;i++){
+    const R=i+2,Rp=R-1,fac=`T${R}`;
+    if(i===0){
+      set('A',R,ageNow); set('S',R,`${pr}6`); set('T',R,1); set('Q',R,`MIN(${pr}28,15)`); set('R',R,0);
+      set('B',R,`IF(A2<=${pr}2,S2,0)`); set('C',R,`(${pr}7*12+${pr}12)`);
+      set('D',R,`IF(A2>=${pr}52,${pr}51,0)`); set('E',R,0); set('F',R,`${pr}24`); set('G',R,0);
+      set('H',R,`${pr}27`); set('I',R,0); set('J',R,0); set('K',R,0); set('L',R,0); set('U',R,0);
+      set('M',R,`${pr}20`); set('N',R,`${pr}4`); set('O',R,0); set('P',R,`M2+N2+O2+H2`);
+      set('V',R,0); set('W',R,`${pr}5`); set('X',R,0); set('Y',R,0); set('Z',R,`${pr}4`); set('AA',R,0);
+      continue;
+    }
+    const gr=`IF((A${R}-2)>=${pr}11,0,IF((A${R}-2)<${pr}9,${pr}8,${pr}10))`;
+    set('A',R,`A${Rp}+1`);
+    set('T',R,`(1+${pr}13/100)^(A${R}-1-${pr}1)`);
+    set('S',R, i===1?`${pr}6`:`S${Rp}*(1+${gr}/100)`);
+    set('Q',R, i===1?`MIN(${pr}28,15)`:`MIN(Q${Rp}*(1+${gr}/100),15)`);
+    set('B',R,`IF(A${R}<=${pr}2,S${R},0)`);
+    set('R',R,`IF(OR(A${R}-1=${pr}52,R${Rp}>0),(IF(A${R}-1=${pr}52,${pr}14,R${Rp}))*(1+${pr}19/100),0)`);
+    set('L',R,`IF(A${R}-1=${pr}52,${pr}14*${pr}15/100,0)+(IF(A${R}-1=${pr}40,${pr}39,0)+IF(A${R}-1=${pr}42,${pr}41,0)+IF(A${R}-1=${pr}44,${pr}43,0)+IF(A${R}-1=${pr}46,${pr}45,0)+IF(A${R}-1=${pr}48,${pr}47,0))*${fac}`);
+    set('D',R,`IF(A${R}-1=${pr}52,MAX(0,${pr}51*(1+${pr}17/100)-${pr}49*12),IF(D${Rp}>0,MAX(0,D${Rp}*(1+${pr}17/100)-${pr}49*12),0))`);
+    set('E',R,`IF(A${R}-1=${pr}52,MIN(${pr}49*12,${pr}51*(1+${pr}17/100)),IF(D${Rp}>0,MIN(${pr}49*12,D${Rp}*(1+${pr}17/100)),0))`);
+    set('F',R,`IF(F${Rp}>0,MAX(0,F${Rp}*(1+${pr}25/100)-${pr}26*12),0)`);
+    set('G',R,`IF(F${Rp}>0,MIN(${pr}26*12,F${Rp}*(1+${pr}25/100)),0)`);
+    set('C',R,`(IF(A${R}<=${pr}2,${pr}7,${pr}37)*12+${pr}12)*${fac}`);
+    set('K',R,`IF(A${R}-1>=${pr}36,${pr}50*12*${fac},0)`);
+    set('U',R,`IF(AND(A${R}-1>=${pr}32,U${Rp}=0),H${Rp}*(${pr}31/1200)*(1+${pr}31/1200)^((${pr}33-${pr}32)*12)/((1+${pr}31/1200)^((${pr}33-${pr}32)*12)-1),U${Rp})`);
+    set('J',R,`IF(A${R}-1>=${pr}32,MIN(U${R}*12,H${Rp}*(1+${pr}31/100)),0)`);
+    set('H',R,`IF(A${R}<=${pr}2,H${Rp}*(1+${pr}31/100)+Q${R}*12*(${pr}29+${pr}30)/100*(1+${pr}31/100)^0.5,H${Rp}*(1+${pr}31/100)-J${R})`);
+    set('V',R,`IF(A${R}<=${pr}2,B${R}*12-Q${R}*12*${pr}30/100-C${R}-E${R}-G${R}-${pr}21*12,J${R}+K${R}-C${R}-E${R}-G${R})`);
+    set('W',R,`${pr}5*${fac}`);
+    set('Z',R,`N${Rp}+IF(A${R}<=${pr}2,V${R},MAX(V${R},0))`);
+    set('AA',R,`L${R}+IF(A${R}<=${pr}2,0,MAX(0,-V${R}))`);
+    set('X',R,`MIN(MAX(0,Z${R}-W${R}),AA${R})`);
+    set('Y',R,`MIN(M${Rp},AA${R}-X${R})`);
+    set('N',R,`(Z${R}-X${R}-MAX(0,AA${R}-X${R}-M${Rp}))*IF(Z${R}-X${R}-MAX(0,AA${R}-X${R}-M${Rp})>0,1.01,1)`);
+    set('M',R,`IF(A${R}<=${pr}2,(M${Rp}-Y${R})*(1+${pr}53)+${pr}21*12*(1+${pr}53)^0.5,(M${Rp}-Y${R})*(1+${pr}38/100))`);
+    set('O',R,`MAX(0,R${R}-D${R})`);
+    set('I',R,`U${R}`);
+    set('P',R,`M${R}+N${R}+O${R}+H${R}`);
+  }
+  wsY['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nrows,c:cols.length-1}});
+  const colW=[{wch:6},{wch:9},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:11},{wch:10},{wch:11},{wch:11},{wch:11},{wch:10},{wch:11},{wch:11}];
+  for(let k=16;k<27;k++) colW.push({hidden:true,wch:9});
+  wsY['!cols']=colW;
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,wsP,'參數');
+  XLSX.utils.book_append_sheet(wb,wsY,'逐年試算');
+  return wb;
+}
+
+function exportExcel(){
+  try{
+    if(typeof XLSX==='undefined'){ alert('Excel 元件尚未載入，請確認第一次開啟時有連上網路，再重試。'); return; }
+    const wb=buildFinanceWorkbook();
+    XLSX.writeFile(wb,'財務逐年試算.xlsx');
+  }catch(e){ alert('產生 Excel 失敗：'+e.message); }
+}
+
+document.querySelectorAll('input').forEach(function(el){
+  el.addEventListener('input',render);
+  el.addEventListener('change',render);
+});
+render();
+</script>
+</body>
+</html>
