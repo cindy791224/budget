@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="記帳">
+<meta name="theme-color" content="#f4f2ec">
+<title>我的記帳</title>
+<style>
+  :root{
+    --bg:#f4f2ec; --surface:#fff; --surface-alt:#faf9f5;
+    --text:#28271f; --text-2:#6b6a60; --text-3:#9a998f;
+    --border:#e6e4db;
+    --teal:#1baf7a; --amber:#d99400; --red:#d0483c; --violet:#6a5acd; --blue:#2a78d6;
+    --r:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#1c1c1a;--surface:#262623;--surface-alt:#2f2f2b;--text:#f0efe8;--text-2:#b6b5aa;--text-3:#88877e;--border:#3a3a35;
+      --teal:#3fc79a;--amber:#e0a642;--red:#e8776a;--violet:#9085e9;--blue:#5a9ce8;}
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;
+    line-height:1.55;padding:0 0 90px;font-size:16px}
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:8px 0 2px}
+  .sub{font-size:13px;color:var(--text-2);margin:0 0 18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+  h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:6px}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--surface-alt);padding:4px;border-radius:12px}
+  .tab{flex:1;padding:9px 4px;text-align:center;font-size:13px;font-weight:600;border-radius:9px;cursor:pointer;color:var(--text-2);border:none;background:none}
+  .tab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .page{display:none}.page.on{display:block}
+
+  /* 預算列 */
+  .brow{margin-bottom:14px}
+  .btop{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:5px}
+  .bname{font-weight:600}
+  .bleft{font-size:13px;color:var(--text-2)}
+  .bleft b{font-size:15px;color:var(--text)}
+  .bar{height:8px;background:var(--surface-alt);border-radius:5px;overflow:hidden}
+  .fill{height:100%;border-radius:5px;transition:width .3s}
+  .bsub{font-size:11px;color:var(--text-3);margin-top:3px}
+  .over{color:var(--red)!important;font-weight:600}
+
+  /* 輸入 */
+  label{display:block;font-size:13px;color:var(--text-2);margin-bottom:5px}
+  input,select{width:100%;height:46px;padding:0 12px;font-size:16px;background:var(--surface-alt);
+    color:var(--text);border:1px solid var(--border);border-radius:11px;outline:none;font-family:inherit}
+  input:focus,select:focus{border-color:var(--blue)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button.act{width:100%;height:48px;font-size:16px;font-weight:600;color:#fff;background:var(--teal);
+    border:none;border-radius:11px;cursor:pointer;margin-top:12px;font-family:inherit}
+  button.act:active{opacity:.85}
+  button.alt{background:var(--violet)}
+  button.warn{background:var(--amber)}
+  button.ghost{background:none;color:var(--text-2);border:1px solid var(--border)}
+
+  /* 目標 */
+  .goal{background:var(--surface-alt);border-radius:12px;padding:14px;margin-bottom:10px}
+  .goal.lock{opacity:.5}
+  .gtop{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:8px}
+  .gnum{font-size:13px;color:var(--text-2);margin-top:6px}
+
+  /* 明細 */
+  .item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:14px}
+  .item:last-child{border:none}
+  .idesc{color:var(--text-2);font-size:12px}
+  .del{color:var(--text-3);background:none;border:none;font-size:18px;cursor:pointer;padding:0 6px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:8px 13px;font-size:13.5px;border-radius:18px;border:1px solid var(--border);
+    background:var(--surface-alt);color:var(--text-2);cursor:pointer;font-family:inherit}
+  .chip.on{background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600}
+  .msg{padding:12px 14px;border-radius:11px;font-size:13.5px;line-height:1.7;margin-top:12px}
+  .msg.ok{background:rgba(27,175,122,.12);border:1px solid rgba(27,175,122,.3)}
+  .msg.no{background:rgba(208,72,60,.1);border:1px solid rgba(208,72,60,.3)}
+  .msg.hm{background:rgba(106,90,205,.1);border:1px solid rgba(106,90,205,.3)}
+  .big{font-size:22px;font-weight:700}
+  .center{text-align:center}
+  .muted{color:var(--text-3);font-size:12.5px;text-align:center;padding:20px 0}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);
+    padding:12px 20px;border-radius:24px;font-size:14px;font-weight:600;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>我的記帳</h1>
+  <p class="sub">記一筆，馬上看到還剩多少 · 資料存在你手機裡</p>
+
+  <div class="tabs">
+    <button class="tab on" data-p="p1">記帳</button>
+    <button class="tab" data-p="p2">預算</button>
+    <button class="tab" data-p="p3">目標</button>
+    <button class="tab" data-p="p4">明細</button>
+  </div>
+
+  <!-- 記帳 -->
+  <div class="page on" id="p1">
+    <div class="card">
+      <h2>➕ 記一筆</h2>
+      <div class="grid2">
+        <div><label>金額</label><input type="number" id="amt" inputmode="numeric" placeholder="0"></div>
+        <div><label>大類</label><select id="cat" onchange="subs()"></select></div>
+      </div>
+      <div style="margin-top:10px"><label>細項</label><div id="subs" class="chips"></div></div>
+      <div style="margin-top:10px"><label>備註（選填）</label><input type="text" id="note" placeholder="例：晚餐、洗頭"></div>
+      <button class="act" onclick="addExp()">記下來</button>
+      <div id="after"></div>
+    </div>
+
+    <div class="card">
+      <h2>🛑 我忍住了</h2>
+      <p style="font-size:12.5px;color:var(--text-2);margin:-6px 0 12px">想買但忍住的錢，直接存進目標。</p>
+      <div class="grid2">
+        <div><label>忍住的金額</label><input type="number" id="ramt" inputmode="numeric" placeholder="0"></div>
+        <div><label>忍住了什麼</label><input type="text" id="rnote" placeholder="例：保養品"></div>
+      </div>
+      <button class="act alt" onclick="resist()">存進目標 💪</button>
+      <div id="rafter"></div>
+    </div>
+
+    <div class="card">
+      <h2>💭 想花一筆錢？先算代價</h2>
+      <div class="grid2">
+        <div><label>想花多少</label><input type="number" id="tamt" inputmode="numeric" placeholder="0" oninput="think()"></div>
+        <div><label>分類</label><select id="tcat" onchange="think()"></select></div>
+      </div>
+      <div id="tres"></div>
+    </div>
+  </div>
+
+  <!-- 預算 -->
+  <div class="page" id="p2">
+    <div class="card">
+      <h2>📅 本月預算</h2>
+      <div id="mbud"></div>
+      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-size:15px;font-weight:700">
+        <span>本月合計</span><span id="mtot"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📆 年度預算</h2>
+      <div id="ybud"></div>
+    </div>
+  </div>
+
+  <!-- 目標 -->
+  <div class="page" id="p3">
+    <div class="card">
+      <h2>🎯 我的目標</h2>
+      <p style="font-size:12.5px;color:var(--text-2);margin:-6px 0 14px">一次專注一個。前一個滿了，下一個才解鎖。</p>
+      <div id="goals"></div>
+    </div>
+    <div class="card">
+      <h2>💪 忍住紀錄</h2>
+      <div id="rstat"></div>
+    </div>
+    <div class="card">
+      <h2>💰 手動存入</h2>
+      <div class="grid2">
+        <div><label>金額</label><input type="number" id="damt" inputmode="numeric" placeholder="0"></div>
+        <div><label>來源</label><input type="text" id="dnote" placeholder="例：年終獎金"></div>
+      </div>
+      <button class="act" onclick="deposit()">存入目前目標</button>
+    </div>
+  </div>
+
+  <!-- 明細 -->
+  <div class="page" id="p4">
+    <div class="card">
+      <h2>📋 本月明細</h2>
+      <div id="list"></div>
+    </div>
+    <div class="card">
+      <h2>⚙️ 資料</h2>
+      <button class="act ghost" onclick="exportCSV()">匯出 CSV</button>
+      <button class="act ghost" onclick="wipe()" style="color:var(--red)">清除所有資料</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const MB={ '飲食':12000, '外表日常':10000, '固定必要':6600, '娛樂/興趣':3000, '人情/其他':2000, '醫療保健':2000 };
+const YB={ '旅遊':100000, '保險':50000, '孝親':45000, '醫美':40000, '稅金':10000 };
+const BIG='大額專案';   // 除毛、居家、運費（不設預算，只記錄）
+const NC='非消費';       // 投資、黃金、貸款、借款（不吃預算）
+// 細項＝舊App類別名稱（匯出時輸出這個，可直接貼回舊App）
+const SUB={
+  '飲食':['飲食','飲料','甜點','泡麵零食','食材','酒'],
+  '外表日常':['美甲美睫','美容美髮','保養化妝','LPG/按摩','做臉療程','衣服','鞋子','內衣褲','包包','髮飾飾品','飾品','精品'],
+  '固定必要':['交通-加油','交通-停車費','交通-保養','交通-悠遊卡','電話網路','3C電子','訂閱必要','文具','日常用品','隱形眼鏡'],
+  '娛樂/興趣':['娛樂','花','占卜降頭','學習深造','訂閱課金'],
+  '人情/其他':['請客','人情送禮','雜支','捐款'],
+  '醫療保健':['醫療保健','牙齒'],
+  '旅遊':['交通-高鐵','交通-機票','交通-租車','交通-計程車','澎湖','旅館','旅行','旅行準備','紀念品'],
+  '保險':['保險'],
+  '孝親':['孝親'],
+  '醫美':['醫美'],
+  '稅金':['稅金'],
+  '大額專案':['除毛','居家','運費'],
+  '非消費':['投資股票','黃金','貸款','借款']
+};
+const GOALS=[
+  {k:'emg', n:'🛡️ 緊急預備金', t:200000, d:'約 5.5 個月生活費'},
+  {k:'med', n:'💉 醫美手術基金', t:250000, d:'後年韓國抽脂（存到才做）'},
+  {k:'emg2',n:'🛡️ 緊急金補到 30 萬', t:100000, d:'更寬裕的安全網'}
+];
+const RET_YRS=25, RET_RATE=0.08, INFL=0.02;
+
+let D={exp:[],dep:[],res:[],start:{emg:100000,med:0,emg2:0}};
+const K='acct_v1';
+
+async function load(){
+  try{ const r=await window.storage.get(K); if(r&&r.value) D=JSON.parse(r.value); }catch(e){}
+  init();
+}
+async function save(){
+  try{ await window.storage.set(K,JSON.stringify(D)); }catch(e){ toast('儲存失敗'); }
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+const fmt=n=>Math.round(n).toLocaleString('zh-Hant-TW');
+const now=()=>new Date();
+const ym=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const curM=()=>ym(now()), curY=()=>String(now().getFullYear());
+
+function mSpent(c){ const m=curM(); return D.exp.filter(e=>e.cat===c&&e.d.slice(0,7)===m).reduce((s,e)=>s+e.amt,0); }
+function ySpent(c){ const y=curY(); return D.exp.filter(e=>e.cat===c&&e.d.slice(0,4)===y).reduce((s,e)=>s+e.amt,0); }
+function wSpent(c){
+  const d=now(), dow=(d.getDay()+6)%7, mon=new Date(d); mon.setDate(d.getDate()-dow); mon.setHours(0,0,0,0);
+  return D.exp.filter(e=>e.cat===c&&new Date(e.d)>=mon).reduce((s,e)=>s+e.amt,0);
+}
+function saved(k){
+  return (D.start[k]||0)
+    + D.dep.filter(x=>x.g===k).reduce((s,x)=>s+x.amt,0)
+    + D.res.filter(x=>x.g===k).reduce((s,x)=>s+x.amt,0);
+}
+function activeGoal(){ for(const g of GOALS){ if(saved(g.k)<g.t) return g; } return null; }
+
+let curSub='';
+function init(){
+  const cs=[...Object.keys(MB),...Object.keys(YB),BIG,NC];
+  ['cat','tcat'].forEach(id=>{
+    const s=document.getElementById(id); s.innerHTML='';
+    cs.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;s.appendChild(o);});
+  });
+  subs();
+  render();
+}
+function subs(){
+  const c=document.getElementById('cat').value;
+  const list=SUB[c]||[];
+  curSub=list[0]||'';
+  document.getElementById('subs').innerHTML=list.map((s,i)=>
+    `<button class="chip ${i===0?'on':''}" onclick="pickSub(this,'${s}')">${s}</button>`).join('');
+}
+function pickSub(el,s){
+  curSub=s;
+  el.parentNode.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function addExp(){
+  const a=parseFloat(document.getElementById('amt').value);
+  if(!a||a<=0){ toast('請輸入金額'); return; }
+  const c=document.getElementById('cat').value;
+  const n=document.getElementById('note').value.trim();
+  D.exp.push({d:new Date().toISOString(),cat:c,sub:curSub||c,amt:a,note:n});
+  save();
+  document.getElementById('amt').value=''; document.getElementById('note').value='';
+  showAfter(c,a);
+  render();
+  toast('已記錄 '+fmt(a));
+}
+
+function showAfter(c,a){
+  const el=document.getElementById('after');
+  let h='';
+  if(MB[c]){
+    const left=MB[c]-mSpent(c), wl=Math.round(MB[c]/4.3)-wSpent(c);
+    const cls=left<0?'no':(left<MB[c]*0.2?'hm':'ok');
+    h=`<div class="msg ${cls}"><b>${c}</b><br>本月剩 <b class="${left<0?'over':''}">${fmt(left)}</b>　·　本週剩 <b class="${wl<0?'over':''}">${fmt(wl)}</b>`;
+    if(left<0) h+=`<br>⚠️ 本月已超支 ${fmt(-left)}，下個月回來就好。`;
+    h+='</div>';
+  } else if(YB[c]){
+    const left=YB[c]-ySpent(c);
+    const g=activeGoal();
+    h=`<div class="msg ${left<0?'no':'ok'}"><b>${c}</b>（年度）<br>今年剩 <b class="${left<0?'over':''}">${fmt(left)}</b>`;
+    if(g&&a>0){ const dl=(a/(160000/12)).toFixed(1); h+=`<br>💭 這筆錢 ≈ <b>${g.n}</b> 進度延後約 <b>${dl}</b> 個月`; }
+    h+='</div>';
+  } else if(c===BIG){
+    const g=activeGoal();
+    h=`<div class="msg hm">🔨 <b>大額專案</b>已記錄（不佔月預算）。`;
+    if(g&&a>0){ h+=`<br>💭 這筆錢 ≈ <b>${g.n}</b> 進度延後約 <b>${(a/(160000/12)).toFixed(1)}</b> 個月`; }
+    h+='</div>';
+  } else if(c===NC){
+    h=`<div class="msg ok">💼 <b>非消費</b>已記錄（投資／還債，不算開銷）。</div>`;
+  }
+  el.innerHTML=h;
+  setTimeout(()=>{el.innerHTML='';},9000);
+}
+
+function resist(){
+  const a=parseFloat(document.getElementById('ramt').value);
+  if(!a||a<=0){ toast('請輸入金額'); return; }
+  const g=activeGoal();
+  if(!g){ toast('所有目標都完成了！'); return; }
+  const n=document.getElementById('rnote').value.trim();
+  D.res.push({d:new Date().toISOString(),g:g.k,amt:a,note:n});
+  save();
+  document.getElementById('ramt').value=''; document.getElementById('rnote').value='';
+  const s=saved(g.k), cnt=D.res.length, tot=D.res.reduce((x,y)=>x+y.amt,0);
+  document.getElementById('rafter').innerHTML=
+    `<div class="msg ok center">💪 太好了！<br><span class="big">+${fmt(a)}</span><br>
+     存進 <b>${g.n}</b>：${fmt(s)} / ${fmt(g.t)}<br>
+     <span style="font-size:12px;color:var(--text-2)">你已經忍住 ${cnt} 次，存下 ${fmt(tot)}</span></div>`;
+  render();
+  toast('已存入 '+fmt(a));
+  setTimeout(()=>{document.getElementById('rafter').innerHTML='';},9000);
+}
+
+function deposit(){
+  const a=parseFloat(document.getElementById('damt').value);
+  if(!a||a<=0){ toast('請輸入金額'); return; }
+  const g=activeGoal();
+  if(!g){ toast('所有目標都完成了！'); return; }
+  D.dep.push({d:new Date().toISOString(),g:g.k,amt:a,note:document.getElementById('dnote').value.trim()});
+  save();
+  document.getElementById('damt').value=''; document.getElementById('dnote').value='';
+  render(); toast('已存入 '+g.n);
+}
+
+function think(){
+  const a=parseFloat(document.getElementById('tamt').value)||0;
+  const c=document.getElementById('tcat').value;
+  const el=document.getElementById('tres');
+  if(a<=0){ el.innerHTML=''; return; }
+  const fv=a*Math.pow(1+RET_RATE,RET_YRS);
+  const fvT=fv/Math.pow(1+INFL,RET_YRS);
+  const g=activeGoal();
+  let h='<div class="msg hm">這筆 <b>'+fmt(a)+'</b>：<br>';
+  if(MB[c]){
+    const left=MB[c]-mSpent(c);
+    h+= left-a<0
+      ? `🔴 <b>${c}</b> 本月只剩 ${fmt(left)}，會超支 <b class="over">${fmt(a-left)}</b><br>`
+      : `🟢 <b>${c}</b> 本月剩 ${fmt(left)}，花完還有 ${fmt(left-a)}<br>`;
+  } else if(YB[c]){
+    const left=YB[c]-ySpent(c);
+    h+=`<b>${c}</b>（年度）今年剩 ${fmt(left)}${left-a<0?'，<b class="over">會超支 '+fmt(a-left)+'</b>':''}<br>`;
+  }
+  if(g){
+    h+=`💉 ≈ <b>${g.n}</b> 的 <b>${(a/g.t*100).toFixed(1)}%</b>，進度延後約 <b>${(a/(160000/12)).toFixed(1)}</b> 個月<br>`;
+  }
+  h+=`📈 不花拿去投資，60 歲 ≈ <b>${fmt(fv)}</b>（今日幣值約 ${fmt(fvT)}）<br>`;
+  h+=`　 ≈ 退休後 <b>${(fvT/35000).toFixed(1)}</b> 個月的生活費</div>`;
+  el.innerHTML=h;
+}
+
+function bar(name,spent,budget,sub){
+  const left=budget-spent, pct=Math.min(spent/budget*100,100);
+  const col=left<0?'var(--red)':(pct>80?'var(--amber)':'var(--teal)');
+  return `<div class="brow">
+    <div class="btop"><span class="bname">${name}</span>
+      <span class="bleft">剩 <b class="${left<0?'over':''}">${fmt(left)}</b> / ${fmt(budget)}</span></div>
+    <div class="bar"><div class="fill" style="width:${pct}%;background:${col}"></div></div>
+    ${sub?'<div class="bsub">'+sub+'</div>':''}</div>`;
+}
+
+function render(){
+  // 月預算
+  let h='',ts=0,tb=0;
+  for(const c in MB){
+    const s=mSpent(c), wl=Math.round(MB[c]/4.3)-wSpent(c);
+    ts+=s; tb+=MB[c];
+    h+=bar(c,s,MB[c],`本週剩 ${fmt(wl)}`);
+  }
+  document.getElementById('mbud').innerHTML=h;
+  document.getElementById('mtot').innerHTML=`<span class="${tb-ts<0?'over':''}">剩 ${fmt(tb-ts)}</span> <span style="color:var(--text-3);font-weight:400">/ ${fmt(tb)}</span>`;
+  // 年預算
+  h='';
+  for(const c in YB){ h+=bar(c,ySpent(c),YB[c],''); }
+  const bs=ySpent(BIG), ncs=ySpent(NC);
+  h+=`<div class="brow"><div class="btop"><span class="bname">🔨 大額專案</span>
+    <span class="bleft">今年累計 <b>${fmt(bs)}</b></span></div>
+    <div class="bsub">除毛／居家／運費・不設預算，只記錄</div></div>`;
+  h+=`<div class="brow"><div class="btop"><span class="bname">💼 非消費</span>
+    <span class="bleft">今年累計 <b>${fmt(ncs)}</b></span></div>
+    <div class="bsub">投資／黃金／貸款・不算開銷</div></div>`;
+  document.getElementById('ybud').innerHTML=h;
+  // 目標
+  const ag=activeGoal();
+  h='';
+  GOALS.forEach(g=>{
+    const s=saved(g.k), pct=Math.min(s/g.t*100,100), done=s>=g.t;
+    const lock=!done&&ag&&ag.k!==g.k;
+    h+=`<div class="goal ${lock?'lock':''}">
+      <div class="gtop"><span>${g.n} ${done?'✅':(lock?'🔒':'')}</span><span>${pct.toFixed(0)}%</span></div>
+      <div class="bar"><div class="fill" style="width:${pct}%;background:${done?'var(--teal)':'var(--violet)'}"></div></div>
+      <div class="gnum">${fmt(s)} / ${fmt(g.t)}${done?'　已達成！':(lock?'　（前一個完成才解鎖）':'　還差 '+fmt(g.t-s))}</div>
+      <div class="bsub">${g.d}</div></div>`;
+  });
+  if(!ag) h+='<div class="msg ok center">🎉 全部目標都達成了！</div>';
+  document.getElementById('goals').innerHTML=h;
+  // 忍住
+  const cnt=D.res.length, tot=D.res.reduce((s,x)=>s+x.amt,0);
+  document.getElementById('rstat').innerHTML= cnt===0
+    ? '<div class="muted">還沒有忍住紀錄。<br>下次想買什麼卻忍住了，記在這裡。</div>'
+    : `<div class="center" style="padding:6px 0"><span class="big">${cnt}</span> 次　·　共存下 <span class="big">${fmt(tot)}</span></div>`
+      + D.res.slice(-5).reverse().map(r=>`<div class="item"><span>${r.note||'忍住了'}<div class="idesc">${r.d.slice(5,10)}</div></span><b style="color:var(--teal)">+${fmt(r.amt)}</b></div>`).join('');
+  // 明細
+  const m=curM();
+  const es=D.exp.filter(e=>e.d.slice(0,7)===m).slice().reverse();
+  document.getElementById('list').innerHTML = es.length===0
+    ? '<div class="muted">本月還沒有紀錄</div>'
+    : es.map((e,i)=>{
+        const idx=D.exp.indexOf(e);
+        return `<div class="item"><span>${e.sub||e.cat}<div class="idesc">${e.cat} · ${e.d.slice(5,10)}${e.note?' · '+e.note:''}</div></span>
+        <span><b>${fmt(e.amt)}</b> <button class="del" onclick="del(${idx})">×</button></span></div>`;
+      }).join('');
+}
+
+function del(i){ if(!confirm('刪除這筆？'))return; D.exp.splice(i,1); save(); render(); toast('已刪除'); }
+
+function exportCSV(){
+  // 格式對齊舊 App：日期(YYYYMMDD), 收支區分, 類別(=細項), 金額, 備註
+  let c='日期,收支區分,類別,金額,備註\n';
+  D.exp.forEach(e=>{
+    const d=e.d.slice(0,10).replace(/-/g,'');
+    c+=`${d},支,${e.sub||e.cat},${e.amt},"${e.note||''}"\n`;
+  });
+  const b=new Blob(['\ufeff'+c],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download='記帳_'+curM()+'.csv'; a.click();
+  toast('已匯出（可貼回舊 App）');
+}
+function wipe(){
+  if(!confirm('確定清除所有資料？無法復原。'))return;
+  if(!confirm('真的確定嗎？'))return;
+  D={exp:[],dep:[],res:[],start:{emg:100000,med:0,emg2:0}};
+  save(); render(); toast('已清除');
+}
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById(t.dataset.p).classList.add('on');
+  window.scrollTo(0,0);
+});
+
+load();
+</script>
+</body>
+</html>
