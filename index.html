@@ -190,7 +190,10 @@
     </div>
     <div class="card">
       <h2>⚙️ 資料</h2>
-      <button class="act ghost" onclick="exportCSV()">匯出 CSV</button>
+      <p style="font-size:12.5px;color:var(--text-2);margin:-6px 0 12px">資料存在這台手機的瀏覽器裡。<strong>建議每月匯出備份一次</strong>（也可貼回舊 App）。換手機或清快取會遺失。</p>
+      <button class="act ghost" onclick="exportCSV()">📤 匯出 CSV（備份）</button>
+      <button class="act ghost" onclick="document.getElementById('impFile').click()">📥 匯入 CSV（還原）</button>
+      <input type="file" id="impFile" accept=".csv" style="display:none" onchange="importCSV(this)">
       <button class="act ghost" onclick="wipe()" style="color:var(--red)">清除所有資料</button>
     </div>
   </div>
@@ -228,12 +231,28 @@ const RET_YRS=25, RET_RATE=0.08, INFL=0.02;
 let D={exp:[],dep:[],res:[],start:{emg:100000,med:0,emg2:0}};
 const K='acct_v1';
 
-async function load(){
-  try{ const r=await window.storage.get(K); if(r&&r.value) D=JSON.parse(r.value); }catch(e){}
+function load(){
+  try{
+    const r=localStorage.getItem(K);
+    if(r) D=JSON.parse(r);
+  }catch(e){ console.warn('讀取失敗',e); }
+  // 相容舊資料：補上缺少的欄位
+  if(!D.exp) D.exp=[];
+  if(!D.dep) D.dep=[];
+  if(!D.res) D.res=[];
+  if(!D.start) D.start={emg:100000,med:0,emg2:0};
+  D.exp.forEach(e=>{ if(!e.sub) e.sub=e.cat; });
   init();
 }
-async function save(){
-  try{ await window.storage.set(K,JSON.stringify(D)); }catch(e){ toast('儲存失敗'); }
+function save(){
+  try{
+    localStorage.setItem(K,JSON.stringify(D));
+    return true;
+  }catch(e){
+    toast('⚠️ 儲存失敗，資料可能遺失');
+    console.error('儲存失敗',e);
+    return false;
+  }
 }
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 const fmt=n=>Math.round(n).toLocaleString('zh-Hant-TW');
@@ -471,6 +490,32 @@ function exportCSV(){
   a.href=URL.createObjectURL(b); a.download='記帳_'+curM()+'.csv'; a.click();
   toast('已匯出（可貼回舊 App）');
 }
+function importCSV(input){
+  const f=input.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{
+      const lines=e.target.result.replace(/^\ufeff/,'').split(/\r?\n/).filter(l=>l.trim());
+      let added=0;
+      lines.slice(1).forEach(l=>{
+        const p=l.match(/(".*?"|[^,]*)(,|$)/g).map(x=>x.replace(/,$/,'').replace(/^"|"$/g,''));
+        if(p.length<4) return;
+        const [d,type,sub,amt,note]=p;
+        if(type!=='支') return;
+        const a=parseFloat(amt); if(!a) return;
+        const iso=d.length===8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}T12:00:00.000Z` : d;
+        const cat=SUB2CAT[sub]||'人情/其他';
+        D.exp.push({d:iso,cat,sub,amt:a,note:note||''});
+        added++;
+      });
+      save(); render();
+      toast(`已匯入 ${added} 筆`);
+    }catch(err){ toast('匯入失敗，格式不符'); }
+    input.value='';
+  };
+  rd.readAsText(f);
+}
+
 function wipe(){
   if(!confirm('確定清除所有資料？無法復原。'))return;
   if(!confirm('真的確定嗎？'))return;
